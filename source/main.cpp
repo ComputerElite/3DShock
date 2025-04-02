@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <curl/curl.h>
 
 #include <3ds.h>
 
@@ -17,6 +18,12 @@ using json = nlohmann::json;
 
 float lastX = -1, lastY = -1;
 
+size_t WriteCallback(void *contents, size_t size, size_t nmemb, char *userp) {
+    size_t realsize = size * nmemb;
+    strncat(userp, static_cast<const char *>(contents), realsize); // Append the response to userp buffer
+    return realsize;
+}
+
 //---------------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
     //---------------------------------------------------------------------------------
@@ -27,6 +34,9 @@ int main(int argc, char *argv[]) {
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
     C2D_Prepare();
     consoleInit(GFX_TOP, NULL);
+
+    aptInit();
+    httpcInit(0);
 
     // Create screens
     //C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
@@ -54,6 +64,10 @@ int main(int argc, char *argv[]) {
 
     u32 clrClear = C2D_Color32(0xFF, 0xD8, 0xB0, 0x68);
 
+    // Initialize libcurl
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    CURL *curl = curl_easy_init();
+
     // Main loop
     while (aptMainLoop()) {
         hidScanInput();
@@ -62,10 +76,9 @@ int main(int argc, char *argv[]) {
         // Respond to user input
         u32 kDown = hidKeysDown();
         if (kDown & KEY_B) {
-            getShockers();
+            // getShockers();
         }
-        if (kDown & KEY_START)
-            break; // break in order to return to hbmenu
+        // break in order to return to hbmenu
         //printf("\x1b[1;1HSimple citro2d shapes example");
         //printf("\x1b[3;1HCPU:     %6.2f%%\x1b[K", C3D_GetProcessingTime() * 6.0f);
         //printf("\x1b[4;1HGPU:     %6.2f%%\x1b[K", C3D_GetDrawingTime() * 6.0f);
@@ -77,25 +90,53 @@ int main(int argc, char *argv[]) {
 
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 
-/*
-        C2D_TargetClear(top, clrClear);
-        //C2D_SceneBegin(top);
+        /*
+                C2D_TargetClear(top, clrClear);
+                //C2D_SceneBegin(top);
 
-        C2D_DrawTriangle(50 / 2, SCREEN_HEIGHT - 50, clrWhite,
-                         0, SCREEN_HEIGHT, clrTri1,
-                         50, SCREEN_HEIGHT, clrTri2, 0);
-        C2D_DrawRectangle(SCREEN_WIDTH - 50, 0, 0, 50, 50, clrRec1, clrRec2, clrRec3, clrRec4);
+                C2D_DrawTriangle(50 / 2, SCREEN_HEIGHT - 50, clrWhite,
+                                 0, SCREEN_HEIGHT, clrTri1,
+                                 50, SCREEN_HEIGHT, clrTri2, 0);
+                C2D_DrawRectangle(SCREEN_WIDTH - 50, 0, 0, 50, 50, clrRec1, clrRec2, clrRec3, clrRec4);
 
-        // Circles require a state change (an expensive operation) within citro2d's internals, so draw them last.
-        // Although it is possible to draw them in the middle of drawing non-circular objects
-        // (sprites, images, triangles, rectangles, etc.) this is not recommended. They should either
-        // be drawn before all non-circular objects, or afterwards.
-        C2D_DrawEllipse(0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, clrCircle1, clrCircle2, clrCircle3, clrWhite);
-        C2D_DrawCircle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 50, clrCircle3, clrWhite, clrCircle1, clrCircle2);
-        C2D_DrawCircle(25, 25, 0, 25,
-                       clrRed, clrBlue, clrGreen, clrWhite);
-        C2D_DrawCircleSolid(SCREEN_WIDTH - 25, SCREEN_HEIGHT - 25, 0, 25, clrSolidCircle);
-        */
+                // Circles require a state change (an expensive operation) within citro2d's internals, so draw them last.
+                // Although it is possible to draw them in the middle of drawing non-circular objects
+                // (sprites, images, triangles, rectangles, etc.) this is not recommended. They should either
+                // be drawn before all non-circular objects, or afterwards.
+                C2D_DrawEllipse(0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, clrCircle1, clrCircle2, clrCircle3, clrWhite);
+                C2D_DrawCircle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 50, clrCircle3, clrWhite, clrCircle1, clrCircle2);
+                C2D_DrawCircle(25, 25, 0, 25,
+                               clrRed, clrBlue, clrGreen, clrWhite);
+                C2D_DrawCircleSolid(SCREEN_WIDTH - 25, SCREEN_HEIGHT - 25, 0, 25, clrSolidCircle);
+                */
+
+        if (kDown & KEY_B) {
+            if (curl) {
+                const char *url = "http://96.7.128.175";
+                char buffer[4096] = ""; // Buffer to hold the HTTP response
+
+                // Set up curl options
+                curl_easy_setopt(curl, CURLOPT_URL, url);
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+                curl_easy_setopt(curl, CURLOPT_WRITEDATA, buffer);
+                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+                curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+
+                // Perform the request
+                CURLcode res = curl_easy_perform(curl);
+                if (res != CURLE_OK) {
+                    printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+                } else {
+                    printf("HTTP Response:\n%s\n", buffer);
+                }
+
+                // Cleanup
+                curl_easy_cleanup(curl);
+            } else {
+                printf("Failed to initialize libcurl.\n");
+            }
+        }
 
         if (kDown & KEY_A) {
             C2D_TargetClear(bottom, clrClear);
@@ -121,7 +162,12 @@ int main(int argc, char *argv[]) {
         }
 
         C3D_FrameEnd(0);
+
+        if (kDown & KEY_START)
+            break;
     }
+
+    curl_global_cleanup();
 
     // Deinit libs
     C2D_Fini();
