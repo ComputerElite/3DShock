@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.7)
 project(3dsTestGraphics)
+find_package(nlohmann_json 3.11.3 REQUIRED)
 
 set(CMAKE_CXX_STANDARD 11)
 
 set(SOURCE_FILES
-        source/main.c)
+        source/main.cpp
+        source/network.cpp
+        source/network.hpp)
 
 include_directories($ENV{DEVKITARM}/include/)
 include_directories($ENV{DEVKITARM}/arm-none-eabi/include)

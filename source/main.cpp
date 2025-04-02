@@ -7,6 +7,8 @@
 
 #include <3ds.h>
 
+#include "network.hpp"
+
 
 #define SCREEN_WIDTH  400
 #define SCREEN_HEIGHT 240
@@ -21,10 +23,10 @@ int main(int argc, char *argv[]) {
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
     C2D_Prepare();
-    // consoleInit(GFX_BOTTOM, NULL);
+    consoleInit(GFX_TOP, NULL);
 
     // Create screens
-    C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+    //C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
     C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
     // Create colors
@@ -66,9 +68,12 @@ int main(int argc, char *argv[]) {
         hidTouchRead(&touch);
 
         // Render the scene
+
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+
+/*
         C2D_TargetClear(top, clrClear);
-        C2D_SceneBegin(top);
+        //C2D_SceneBegin(top);
 
         C2D_DrawTriangle(50 / 2, SCREEN_HEIGHT - 50, clrWhite,
                          0, SCREEN_HEIGHT, clrTri1,
@@ -84,6 +89,7 @@ int main(int argc, char *argv[]) {
         C2D_DrawCircle(25, 25, 0, 25,
                        clrRed, clrBlue, clrGreen, clrWhite);
         C2D_DrawCircleSolid(SCREEN_WIDTH - 25, SCREEN_HEIGHT - 25, 0, 25, clrSolidCircle);
+        */
 
         if (kDown & KEY_A) {
             C2D_TargetClear(bottom, clrClear);
