@@ -7,7 +7,8 @@ set(CMAKE_CXX_STANDARD 11)
 set(SOURCE_FILES
         source/main.cpp
         source/network.cpp
-        source/network.hpp)
+        source/network.hpp
+source/json.hpp)
 
 include_directories($ENV{DEVKITARM}/include/)
 include_directories($ENV{DEVKITARM}/arm-none-eabi/include)

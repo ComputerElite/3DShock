@@ -8,10 +8,12 @@
 #include <3ds.h>
 
 #include "network.hpp"
-
+#include "json.hpp"
 
 #define SCREEN_WIDTH  400
 #define SCREEN_HEIGHT 240
+
+using json = nlohmann::json;
 
 float lastX = -1, lastY = -1;
 
@@ -19,6 +21,16 @@ float lastX = -1, lastY = -1;
 int main(int argc, char *argv[]) {
     //---------------------------------------------------------------------------------
     // Init libs
+
+    json ex1 = json::parse(R"(
+  {
+    "pi": 3.141,
+    "happy": true
+  }
+)");
+    ex1["happy"] = false;
+    ex1["pi"] = 3.14;
+
     gfxInitDefault();
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
@@ -61,9 +73,10 @@ int main(int argc, char *argv[]) {
         if (kDown & KEY_START)
             break; // break in order to return to hbmenu
         printf("\x1b[1;1HSimple citro2d shapes example");
-        printf("\x1b[2;1HCPU:     %6.2f%%\x1b[K", C3D_GetProcessingTime() * 6.0f);
-        printf("\x1b[3;1HGPU:     %6.2f%%\x1b[K", C3D_GetDrawingTime() * 6.0f);
-        printf("\x1b[4;1HCmdBuf:  %6.2f%%\x1b[K", C3D_GetCmdBufUsage() * 100.0f);
+        printf("\x1b[2;1H%f\x1b[K", ex1["pi"].get<float>());
+        printf("\x1b[3;1HCPU:     %6.2f%%\x1b[K", C3D_GetProcessingTime() * 6.0f);
+        printf("\x1b[4;1HGPU:     %6.2f%%\x1b[K", C3D_GetDrawingTime() * 6.0f);
+        printf("\x1b[5;1HCmdBuf:  %6.2f%%\x1b[K", C3D_GetCmdBufUsage() * 100.0f);
 
         hidTouchRead(&touch);
 
