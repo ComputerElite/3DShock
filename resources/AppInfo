@@ -1,0 +1,8 @@
+APP_TITLE = 3DShock
+APP_DESCRIPTION = A Nintendo 3ds homebrew application for controlling OpenShock shockers
+APP_AUTHOR = ComputerElite, Abynox
+APP_PRODUCT_CODE = 3dshock
+APP_UNIQUE_ID = 0xe621
+APP_VER_MAJOR = 0
+APP_VER_MINOR = 0
+APP_VER_MICRO = 0
