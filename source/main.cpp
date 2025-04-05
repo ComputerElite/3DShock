@@ -46,6 +46,38 @@ Result init_services() {
 
     return res;
 }
+
+int selectedShockerIndex = 0;
+std::list<Shocker> shockers;
+int intensity = 25;
+int duration = 300;
+
+int clamp(int value, int min, int max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
+
+void printStatus() {
+    if (shockers.empty()) {
+        printf("\x1b[1;1HNo shockers found.\n\x1b[K");
+    } else {
+        selectedShockerIndex = selectedShockerIndex % shockers.size();
+        auto selectedShocker = shockers.begin();
+
+        std::advance(selectedShocker, selectedShockerIndex);
+        printf("\x1b[1;1HSelected Shocker: %s (I%d, D%d)\n\x1b[K", selectedShocker->name, selectedShocker->limits.intensity, selectedShocker->limits.duration);
+    }
+    intensity = clamp(intensity, 0, 100);
+    duration = clamp(duration, 300, 30000);
+    printf("\x1b[2;1HIntensity: %d\n\x1b[K", intensity);
+    printf("\x1b[3;1HDuration: %d\n\x1b[K", duration);
+}
+
+void action(const char* action) {
+    // ToDo: POST request to server with action
+}
+
 //---------------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
     init_services();
@@ -77,8 +109,9 @@ int main(int argc, char *argv[]) {
     u32 clrClear = C2D_Color32(0xFF, 0xD8, 0xB0, 0x68);
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
+    shockers = getShockers();
+    consoleClear();
 
-    std::list<Shocker> shockers;
 
     // Main loop
     while (aptMainLoop()) {
@@ -95,9 +128,30 @@ int main(int argc, char *argv[]) {
 
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 
+        printStatus();
+
         if (kDown & KEY_B) {
-            getShockers(shockers);
+            shockers = getShockers();
             printf("Memory: %d %d %d\n", mallinfo().arena, mallinfo().uordblks, mallinfo().fordblks);
+        }
+
+        if (kDown & KEY_X) {
+            selectedShockerIndex++;
+        }
+        if (kDown & KEY_DDOWN) {
+            intensity -= 5;
+        }
+        if (kDown & KEY_DUP) {
+            intensity += 5;
+        }
+        if (kDown & KEY_DLEFT) {
+            duration -= 200;
+        }
+        if (kDown & KEY_DRIGHT) {
+            duration += 200;
+        }
+        if (kDown & KEY_A) {
+            action("Vibrate");
         }
 
         if (kDown & KEY_A) {
@@ -130,7 +184,7 @@ int main(int argc, char *argv[]) {
     }
 
     curl_global_cleanup();
-    cleanup_services();
+    //cleanup_services();
 
     // Deinit libs
     C2D_Fini();
