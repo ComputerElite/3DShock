@@ -8,7 +8,7 @@ const char* userAgent = "3DShock/0.0.0";
 char token[] = "SBB7r75ogF1Iul8CKPVgaBAFy62MIFdhCSIOuF4Moyom421YQICZLUS0vo8vvrp7";
 User user = {token};
 
-Result http_get(const char *url, u8* buf, char *token)
+Result http_get(const char *url, u8 **buf, char* token)
 {
 	Result ret=0;
 	httpcContext context;
@@ -21,7 +21,6 @@ Result http_get(const char *url, u8* buf, char *token)
 
 	do {
 		ret = httpcOpenContext(&context, HTTPC_METHOD_GET, url, 1);
-		printf("%i", ret);
 		printf("return from httpcOpenContext: %" PRId32 "\n",ret);
 
 		// This disables SSL cert verification, so https:// will be usable
@@ -43,11 +42,11 @@ Result http_get(const char *url, u8* buf, char *token)
 		printf("return from httpcAddRequestHeaderField: %" PRId32 "\n",ret);
 
 
-		//ret = httpcAddRequestHeaderField(&context, "Host", "api.openshock.zap");
+		//ret = httpcAddRequestHeaderField(&context, "Host", "oculusdb.rui2015.me");
 		//printf("return from httpcAddRequestHeaderField: %" PRId32 "\n",ret);
 
-		ret = httpcAddRequestHeaderField(&context, "OpenShockToken", token);
-		printf("return from httpcAddRequestHeaderField: %" PRId32 "\n",ret);
+		//ret = httpcAddRequestHeaderField(&context, "OpenShockToken", token);
+		//printf("return from httpcAddRequestHeaderField: %" PRId32 "\n",ret);
 
 		ret = httpcBeginRequest(&context);
 		if(ret!=0){
@@ -55,6 +54,7 @@ Result http_get(const char *url, u8* buf, char *token)
 			if(!newurl) free(newurl);
 			return ret;
 		}
+		printf("Begun request\n");
 
 		ret = httpcGetResponseStatusCode(&context, &statuscode);
 		if(ret!=0){
@@ -62,6 +62,7 @@ Result http_get(const char *url, u8* buf, char *token)
 			if(!newurl) free(newurl);
 			return ret;
 		}
+		printf("Got status code\n");
 
 		if ((statuscode >= 301 && statuscode <= 303) || (statuscode >= 307 && statuscode <= 308)) {
 			if(!newurl) newurl = static_cast<char *>(malloc(0x1000)); // One 4K page for new URL
@@ -94,8 +95,8 @@ Result http_get(const char *url, u8* buf, char *token)
 	printf("reported size: %" PRId32 "\n",contentsize);
 
 	// Start with a single page buffer
-	buf = static_cast<u8 *>(malloc(0x1000));
-	if(!buf){
+	*buf = static_cast<u8 *>(malloc(0x1000));
+	if(!*buf){
 		httpcCloseContext(&context);
 		if(newurl) free(newurl);
 		return -1;
@@ -103,12 +104,12 @@ Result http_get(const char *url, u8* buf, char *token)
 
 	do {
 		// This download loop resizes the buffer as data is read.
-		ret = httpcDownloadData(&context, buf+size, 0x1000, &readsize);
+		ret = httpcDownloadData(&context, *buf+size, 0x1000, &readsize);
 		size += readsize;
 		if (ret == static_cast<s32>(HTTPC_RESULTCODE_DOWNLOADPENDING)){
-				lastbuf = buf; // Save the old pointer, in case realloc() fails.
-				buf = static_cast<u8 *>(realloc(buf, size + 0x1000));
-				if(!buf){
+				lastbuf = *buf; // Save the old pointer, in case realloc() fails.
+				*buf = static_cast<u8 *>(realloc(*buf, size + 0x1000));
+				if(!*buf){
 					httpcCloseContext(&context);
 					free(lastbuf);
 					if(newurl) free(newurl);
@@ -120,14 +121,14 @@ Result http_get(const char *url, u8* buf, char *token)
 	if(ret!=0){
 		httpcCloseContext(&context);
 		if(newurl) free(newurl);
-		free(buf);
+		free(*buf);
 		return -1;
 	}
 
 	// Resize the buffer back down to our actual final size
-	lastbuf = buf;
-	buf = static_cast<u8 *>(realloc(buf, size));
-	if(!buf){ // realloc() failed.
+	lastbuf = *buf;
+	*buf = static_cast<u8 *>(realloc(*buf, size));
+	if(!*buf){ // realloc() failed.
 		httpcCloseContext(&context);
 		free(lastbuf);
 		if(newurl) free(newurl);
@@ -137,7 +138,6 @@ Result http_get(const char *url, u8* buf, char *token)
 	printf("downloaded size: %" PRId32 "\n",size);
 
 	httpcCloseContext(&context);
-	free(buf);
 	if (newurl) free(newurl);
 
 	return 0;
@@ -145,11 +145,12 @@ Result http_get(const char *url, u8* buf, char *token)
 
 void getShockers() {
 	u8* buf;
-	http_get("http://devkitpro.org/misc/httpexample_rawimg.rgb", buf, user.token);
+	Result r = http_get("https://openshock.app/", &buf, user.token);
+	//printf("Error getting response status: 0x%08X\n", r);
 	if (buf) {
 		printf("Buffer: %s\n", buf);
 		free(buf);
 	} else {
-		printf("Failed to get shockers\n");
+		printf("Buffer was freed\n");
 	}
 }

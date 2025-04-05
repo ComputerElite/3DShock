@@ -5,8 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <curl/curl.h>
+#include <sys/iosupport.h>
+#include <malloc.h>
 
 #include <3ds.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "network.hpp"
 #include "json.hpp"
@@ -14,19 +18,100 @@
 #define SCREEN_WIDTH  400
 #define SCREEN_HEIGHT 240
 
+static u32 *soc_buffer = nullptr;
+
 using json = nlohmann::json;
 
 float lastX = -1, lastY = -1;
 
-size_t WriteCallback(void *contents, size_t size, size_t nmemb, char *userp) {
-    size_t realsize = size * nmemb;
-    strncat(userp, static_cast<const char *>(contents), realsize); // Append the response to userp buffer
-    return realsize;
+
+typedef struct {
+    u32 bufferSize;
+    u64* contentLength;
+    void* userData;
+    Result (*callback)(void* userData, void* buffer, size_t size);
+
+    void* buf;
+    u32 pos;
+
+    Result res;
+} http_curl_data;
+#define HTTP_CONTENT_LENGTH_HEADER "Content-Length"
+#define HTTP_TIMEOUT_SEC 5
+
+static size_t http_curl_header_callback(char* buffer, size_t size, size_t nitems, void* userdata) {
+    http_curl_data* curlData = (http_curl_data*) userdata;
+
+    size_t bytes = size * nitems;
+    size_t headerNameLen = strlen(HTTP_CONTENT_LENGTH_HEADER);
+
+    if(bytes >= headerNameLen && strncmp(buffer, HTTP_CONTENT_LENGTH_HEADER, headerNameLen) == 0) {
+        char* separator = strstr(buffer, ": ");
+        if(separator != NULL) {
+            char* valueStart = separator + 2;
+
+            char value[32];
+            memset(value, '\0', sizeof(value));
+            strncpy(value, valueStart, bytes - (valueStart - buffer));
+
+            if(curlData->contentLength != NULL) {
+                *(curlData->contentLength) = (u64) atoll(value);
+            }
+        }
+    }
+
+    return size * nitems;
 }
 
+static size_t http_curl_write_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
+    http_curl_data* curlData = (http_curl_data*) userdata;
+
+    size_t available = size * nmemb;
+    while(available > 0) {
+        size_t remaining = curlData->bufferSize - curlData->pos;
+        size_t copySize = available < remaining ? available : remaining;
+
+        memcpy((u8*) curlData->buf + curlData->pos, ptr, copySize);
+        curlData->pos += copySize;
+        available -= copySize;
+
+        if(curlData->pos == curlData->bufferSize) {
+            curlData->res = curlData->callback(curlData->userData, curlData->buf, curlData->bufferSize);
+            curlData->pos = 0;
+        }
+    }
+
+    return R_SUCCEEDED(curlData->res) ? size * nmemb : 0;
+}
+
+void cleanup_services() {
+    if(soc_buffer != NULL) {
+        free(soc_buffer);
+        soc_buffer = NULL;
+    }
+}
+
+Result init_services() {
+    Result res = 0;
+
+    soc_buffer = (u32*)memalign(0x1000, 0x100000);
+    if(soc_buffer != NULL) {
+        Handle tempAM = 0;
+        if(R_SUCCEEDED(res = srvGetServiceHandle(&tempAM, "am:net"))) {
+            svcCloseHandle(tempAM);
+            socInit(soc_buffer, 0x100000);
+        }
+    }
+
+    if(R_FAILED(res)) {
+        cleanup_services();
+    }
+
+    return res;
+}
 //---------------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
-    //---------------------------------------------------------------------------------
+    init_services();
     // Init libs
 
     gfxInitDefault();
@@ -34,9 +119,6 @@ int main(int argc, char *argv[]) {
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
     C2D_Prepare();
     consoleInit(GFX_TOP, NULL);
-
-    aptInit();
-    httpcInit(0);
 
     // Create screens
     //C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
@@ -64,9 +146,7 @@ int main(int argc, char *argv[]) {
 
     u32 clrClear = C2D_Color32(0xFF, 0xD8, 0xB0, 0x68);
 
-    // Initialize libcurl
     curl_global_init(CURL_GLOBAL_DEFAULT);
-    CURL *curl = curl_easy_init();
 
     // Main loop
     while (aptMainLoop()) {
@@ -111,17 +191,27 @@ int main(int argc, char *argv[]) {
                 */
 
         if (kDown & KEY_B) {
+            CURL *curl = curl_easy_init();
             if (curl) {
-                const char *url = "http://96.7.128.175";
-                char buffer[4096] = ""; // Buffer to hold the HTTP response
+                const char *url = "https://openshock.app/";
+                const int bufferSize = 4096;
+                u64* contentLength = 0;
+                void* userData = nullptr;
+                Result (*callback)(void* userData, void* buffer, size_t size) = nullptr;
+                char buffer[bufferSize] = ""; // Buffer to hold the HTTP response
+                http_curl_data curlData = {bufferSize, contentLength, userData, callback, buffer, 0, 0};
 
                 // Set up curl options
                 curl_easy_setopt(curl, CURLOPT_URL, url);
-                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-                curl_easy_setopt(curl, CURLOPT_WRITEDATA, buffer);
-                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-                curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+                curl_easy_setopt(curl, CURLOPT_USERAGENT, "Test");
+                curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, bufferSize);
+                curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_TIMEOUT_SEC);
+                curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_curl_write_callback);
+                curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*) &curlData);
+                curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, http_curl_header_callback);
+                curl_easy_setopt(curl, CURLOPT_HEADERDATA, (void*) &curlData);
 
                 // Perform the request
                 CURLcode res = curl_easy_perform(curl);
