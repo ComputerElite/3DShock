@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Debug in 3ds" type="CLion_Remote" version="1" remoteCommand="10.215.31.44:4003" symbolFile="$PROJECT_DIR$/output/3DShock.elf" sysroot="$PROJECT_DIR$">
+    <debugger kind="GDB" isBundled="true" />
+    <pathMapping remote=":/applications" local="." />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="false" run_configuration_name="Clean" run_configuration_type="docker-deploy" />
+      <option name="RunConfigurationTask" enabled="false" run_configuration_name="freifunk" run_configuration_type="MAKEFILE_TARGET_RUN_CONFIGURATION" />
+      <option name="RunConfigurationTask" enabled="false" run_configuration_name="Send via 3dslink" run_configuration_type="docker-deploy" />
+    </method>
+  </configuration>
+</component>
