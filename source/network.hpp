@@ -28,4 +28,4 @@ struct Shocker {
     ShockerPermissions permissions;
 };
 
-extern std::list<Shocker> getShockers();
+extern void getShockers(std::list<Shocker> shockers);

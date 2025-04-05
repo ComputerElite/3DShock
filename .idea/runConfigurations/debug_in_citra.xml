@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Debug in Citra" type="CLion_Remote" version="1" remoteCommand="localhost:3303" symbolFile="$PROJECT_DIR$/output/3DShock.elf" sysroot="$PROJECT_DIR$/output">
+    <debugger kind="GDB" isBundled="true" />
+    <pathMapping remote=":/applications" local="." />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Clean" run_configuration_type="docker-deploy" />
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Build" run_configuration_type="docker-deploy" />
+      <option name="RunConfigurationTask" enabled="false" run_configuration_name="Run in Citra (Linux/macOS)" run_configuration_type="ShConfigurationType" />
+    </method>
+  </configuration>
+</component>

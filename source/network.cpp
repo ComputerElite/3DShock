@@ -115,6 +115,9 @@ Result http_get(const char *url, u8 **buf, char* token)
 		void* userData = nullptr;
 		Result (*callback)(void* userData, void* buffer, size_t size) = nullptr;
 		*buf = static_cast<u8 *>(malloc(bufferSize));
+		for (int i = 0; i < bufferSize; i++) {
+			(*buf)[i] = 0;
+		}
 		http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
 
 		curl_slist *headers = nullptr;
@@ -196,14 +199,14 @@ Shocker parseShocker(nlohmann::basic_json<>& shocker) {
 	return parsedShocker;
 }
 
-std::list<Shocker> getShockers() {
+json tmpShockers;
+void getShockers(std::list<Shocker> shockers) {
 	printf("Getting shockers...\n");
 	u8* buf;
+	shockers.clear();
 
 	Result r = http_get(concatenateCharPtrAndStr(apiUrl, "1/shockers/own"), &buf, user.token);
 	printf("HTTP_GET returned 0x%08X\n", r);
-	std::list<Shocker> shockers;
-	json tmpShockers;
 	if (buf) {
 		printf("Response body: %s\n", reinterpret_cast<char *>(buf));
 		printf("\nParsing\n\n");
@@ -231,10 +234,11 @@ std::list<Shocker> getShockers() {
 	if (buf) {
 		printf("Response body: %s\n", reinterpret_cast<char *>(buf));
 		printf("\nParsing\n\n");
-		tmpShockers = json::parse(buf);
+		sleep(1);
+		json newTmpShockers = json::parse(buf);
 		printf("\nParsed\n\n");
-		if (tmpShockers["data"] != nullptr) {
-			for (auto& deviceCollection : tmpShockers["data"]) {
+		if (newTmpShockers["data"] != nullptr) {
+			for (auto& deviceCollection : newTmpShockers["data"]) {
 				if (deviceCollection["devices"] != nullptr) {
 					for (auto& hub : deviceCollection["devices"]) {
 						printf("\nName:%s\n", hub["name"].get<std::string>().c_str());
@@ -253,5 +257,4 @@ std::list<Shocker> getShockers() {
 		printf("Buffer was freed\n");
 	}
 	printf("Got%s %d shockers\n", !shockers.empty() ? "" : " no", static_cast<int>(shockers.size()));
-	return shockers;
 }
