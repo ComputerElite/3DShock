@@ -5,6 +5,8 @@
 extern const char* userAgent;
 struct User {
     char *token;
+    char *server;
+    bool loggedIn;
 };
 
 struct ShockerLimits {
@@ -27,6 +29,8 @@ struct Shocker {
     ShockerLimits limits;
     ShockerPermissions permissions;
 };
+
+extern User user;
 
 extern int clamp(int value, int min, int max);
 

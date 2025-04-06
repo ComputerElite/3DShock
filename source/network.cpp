@@ -6,13 +6,10 @@
 #include <string>
 #include <curl/curl.h>
 
-#include "creds.h"
 #include "json.hpp"
 
 const char* userAgent = "3DShock/0.0.0";
-char token[] = OPENSHOCK_TOKEN;
-char apiUrl[] = OPENSHOCK_URL;
-User user = {token};
+User user = {nullptr, nullptr, false};
 #define HTTP_CONTENT_LENGTH_HEADER "Content-Length"
 #define HTTP_TIMEOUT_SEC 5
 
@@ -265,8 +262,7 @@ bool sendAction(const char* action, int intensity, int duration, Shocker s) {
 	j["shocks"].push_back({{"id", s.id}, {"type", action}, {"intensity", intensity}, {"duration", duration}, {"exclusive", true}});
 	j["customName"] = nullptr;
 	u8* buf;
-	printf(j.dump().c_str());
-	Result r = http_post(concatenateCharPtrAndStr(apiUrl, "2/shockers/control"), &buf, j.dump().c_str(), user.token);
+	Result r = http_post(concatenateCharPtrAndStr(user.server, "2/shockers/control"), &buf, j.dump().c_str(), user.token);
 	if (buf) {
 		printf("%s\n", reinterpret_cast<char *>(buf));
 		free(buf);
@@ -282,7 +278,7 @@ std::list<Shocker> getShockers() {
 	printf("Getting shockers...\n");
 	u8* buf;
 	std::list<Shocker> shockers;
-	Result r = http_get(concatenateCharPtrAndStr(apiUrl, "1/shockers/own"), &buf, user.token);
+	Result r = http_get(concatenateCharPtrAndStr(user.server, "1/shockers/own"), &buf, user.token);
 	printf("HTTP_GET returned 0x%08X\n", r);
 	if (buf) {
 		printf("Response body: %s\n", reinterpret_cast<char *>(buf));
@@ -305,7 +301,7 @@ std::list<Shocker> getShockers() {
 	} else {
 		printf("Buffer was freed\n");
 	}
-	r = http_get(concatenateCharPtrAndStr(apiUrl, "1/shockers/shared"), &buf, user.token);
+	r = http_get(concatenateCharPtrAndStr(user.server, "1/shockers/shared"), &buf, user.token);
 	printf("HTTP_GET returned 0x%08X\n", r);
 	if (buf) {
 		printf("Response body: %s\n", reinterpret_cast<char *>(buf));
