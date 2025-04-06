@@ -80,3 +80,6 @@ output
 # Gradle
 .idea/**/gradle.xml
 .idea/**/libraries
+
+# Tokens shouldn't be pushed from now on!
+source/creds.h
