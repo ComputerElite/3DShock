@@ -122,7 +122,7 @@ Result http_post(const char *url, u8 **buf, const char* data, char* token)
 		http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
 
 		curl_slist *headers = nullptr;
-		headers = curl_slist_append(headers, "Host: api.openshock.zap");
+		//headers = curl_slist_append(headers, "Host: api.openshock.zap");
 		headers = curl_slist_append(headers, concatenateStringAndCharPtr("OpenShockToken: ", token));
 		headers = curl_slist_append(headers, "Content-Type: application/json");
 
@@ -173,7 +173,7 @@ Result http_get(const char *url, u8 **buf, char* token)
 		http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
 
 		curl_slist *headers = nullptr;
-		headers = curl_slist_append(headers, "Host: api.openshock.zap");
+		//headers = curl_slist_append(headers, "Host: api.openshock.zap");
 		headers = curl_slist_append(headers, concatenateStringAndCharPtr("OpenShockToken: ", token));
 
 		// Set up curl options
