@@ -230,8 +230,8 @@ Shocker parseShocker(nlohmann::basic_json<>& shocker) {
 	else parsedShocker.model = strdup("Unknown");
 	parsedShocker.isPaused = shocker["isPaused"].get<bool>();
 	if (shocker["limits"] != nullptr) {
-		parsedShocker.limits.intensity = shocker["limits"]["intensity"].get<int>();
-		parsedShocker.limits.duration = shocker["limits"]["duration"].get<int>();
+		parsedShocker.limits.intensity = shocker["limits"]["intensity"] == nullptr ? 100 : shocker["limits"]["intensity"].get<int>();
+		parsedShocker.limits.duration = shocker["limits"]["duration"] == nullptr ? 30000 : shocker["limits"]["duration"].get<int>();
 	} else {
 		parsedShocker.limits.intensity = 100;
 		parsedShocker.limits.duration = 30000;
@@ -289,11 +289,13 @@ std::list<Shocker> getShockers() {
 		tmpShockers = json::parse(buf);
 		if (tmpShockers["data"] != nullptr) {
 			for (auto& hub : tmpShockers["data"]) {
-				if (hub["name"] != nullptr) printf("\nName:%s\n", hub["name"].get<std::string>().c_str());
+				std::string hubName;
+				if (hub["name"] != nullptr) hubName = hub["name"].get<std::string>();
 				else printf("\nName:Unknown\n");
 				if (hub["shockers"] != nullptr) {
 					for (auto& shocker : hub["shockers"]) {
 						Shocker parsedShocker = parseShocker(shocker);
+						parsedShocker.name = strdup((std::string(hubName) + "." + parsedShocker.name).c_str());
 						shockers.push_back(parsedShocker);
 					}
 				}
@@ -312,10 +314,13 @@ std::list<Shocker> getShockers() {
 			for (auto& deviceCollection : newTmpShockers["data"]) {
 				if (deviceCollection["devices"] != nullptr) {
 					for (auto& hub : deviceCollection["devices"]) {
-						printf("\nName:%s\n", hub["name"].get<std::string>().c_str());
+						std::string hubName;
+						if (hub["name"] != nullptr) hubName = hub["name"].get<std::string>();
+						else printf("\nName:Unknown\n");
 						if (hub["shockers"] != nullptr) {
 							for (auto& shocker : hub["shockers"]) {
 								Shocker parsedShocker = parseShocker(shocker);
+								parsedShocker.name = strdup((std::string(hubName) + "." + parsedShocker.name).c_str());
 								shockers.push_back(parsedShocker);
 							}
 						}
