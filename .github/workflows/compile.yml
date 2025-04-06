@@ -1,0 +1,22 @@
+name: Compile 3DS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: set up devkitpro
+        run: |
+          curl -L https://apt.devkitpro.org/install-devkitpro-pacman | bash
+          dkp-pacman -Syu
+          dkp-pacman -S 3ds-dev 3ds-curl
+      - run: make cia
+      - run: ls output
