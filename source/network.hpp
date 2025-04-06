@@ -28,4 +28,7 @@ struct Shocker {
     ShockerPermissions permissions;
 };
 
+extern int clamp(int value, int min, int max);
+
+extern bool sendAction(const char* action, int intensity, int duration, Shocker s);
 extern std::list<Shocker> getShockers() ;

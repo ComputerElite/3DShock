@@ -7,7 +7,8 @@ set(SOURCE_FILES
         source/main.cpp
         source/network.cpp
         source/network.hpp
-        source/json.hpp)
+        source/json.hpp
+        source/creds.h)
 
 include_directories($ENV{DEVKITARM}/include/)
 include_directories($ENV{DEVKITARM}/arm-none-eabi/include)

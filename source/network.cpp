@@ -6,11 +6,12 @@
 #include <string>
 #include <curl/curl.h>
 
+#include "creds.h"
 #include "json.hpp"
 
 const char* userAgent = "3DShock/0.0.0";
-char token[] = "SBB7r75ogF1Iul8CKPVgaBAFy62MIFdhCSIOuF4Moyom421YQICZLUS0vo8vvrp7";
-char apiUrl[] = "http://10.215.28.228/";
+char token[] = OPENSHOCK_TOKEN;
+char apiUrl[] = OPENSHOCK_URL;
 User user = {token};
 #define HTTP_CONTENT_LENGTH_HEADER "Content-Length"
 #define HTTP_TIMEOUT_SEC 5
@@ -106,6 +107,57 @@ char* concatenateStringAndCharPtr(const std::string& str, const char* charPtr) {
 	return result;
 }
 
+Result http_post(const char *url, u8 **buf, const char* data, char* token)
+{
+	CURL *curl = curl_easy_init();
+	if (curl) {
+		constexpr int bufferSize = 4096;
+		u64* contentLength = nullptr;
+		void* userData = nullptr;
+		Result (*callback)(void* userData, void* buffer, size_t size) = nullptr;
+		*buf = static_cast<u8 *>(malloc(bufferSize));
+		for (int i = 0; i < bufferSize; i++) {
+			(*buf)[i] = 0;
+		}
+		http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
+
+		curl_slist *headers = nullptr;
+		headers = curl_slist_append(headers, "Host: api.openshock.zap");
+		headers = curl_slist_append(headers, concatenateStringAndCharPtr("OpenShockToken: ", token));
+		headers = curl_slist_append(headers, "Content-Type: application/json");
+
+		// Set up curl options
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_POST, 1L);
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, strdup(data));
+		curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent);
+		curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, bufferSize);
+		curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_TIMEOUT_SEC);
+		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+		curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_curl_write_callback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*) &curlData);
+		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, http_curl_header_callback);
+		curl_easy_setopt(curl, CURLOPT_HEADERDATA, (void*) &curlData);
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+		// Perform the request
+		CURLcode res = curl_easy_perform(curl);
+		free(contentLength);
+		curl_slist_free_all(headers);
+		if (res != CURLE_OK) {
+			printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+			return res;
+		}
+
+		// Cleanup
+		curl_easy_cleanup(curl);
+		return 0;
+	}
+	printf("Failed to initialize libcurl.\n");
+	return 1;
+}
+
 Result http_get(const char *url, u8 **buf, char* token)
 {
 	CURL *curl = curl_easy_init();
@@ -197,6 +249,32 @@ Shocker parseShocker(nlohmann::basic_json<>& shocker) {
 	}
 
 	return parsedShocker;
+}
+
+int clamp(int value, int min, int max) {
+	if (value < min) return min;
+	if (value > max) return max;
+	return value;
+}
+
+bool sendAction(const char* action, int intensity, int duration, Shocker s) {
+	intensity = clamp(intensity, 0, s.limits.intensity);
+	duration = clamp(duration, 0, s.limits.duration);
+	json j;
+	j["shocks"] = json::array();
+	j["shocks"].push_back({{"id", s.id}, {"type", action}, {"intensity", intensity}, {"duration", duration}, {"exclusive", true}});
+	j["customName"] = nullptr;
+	u8* buf;
+	printf(j.dump().c_str());
+	Result r = http_post(concatenateCharPtrAndStr(apiUrl, "2/shockers/control"), &buf, j.dump().c_str(), user.token);
+	if (buf) {
+		printf("%s\n", reinterpret_cast<char *>(buf));
+		free(buf);
+	} else {
+		printf("Buffer was freed\n");
+	}
+	printf("HTTP_POST returned 0x%08X\n", r);
+	return r == 0;
 }
 
 json tmpShockers;

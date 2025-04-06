@@ -52,13 +52,10 @@ std::list<Shocker> shockers;
 int intensity = 25;
 int duration = 300;
 
-int clamp(int value, int min, int max) {
-    if (value < min) return min;
-    if (value > max) return max;
-    return value;
-}
+
 
 void printStatus() {
+    consoleClear();
     if (shockers.empty()) {
         printf("\x1b[1;1HNo shockers found.\n\x1b[K");
     } else {
@@ -71,11 +68,21 @@ void printStatus() {
     intensity = clamp(intensity, 0, 100);
     duration = clamp(duration, 300, 30000);
     printf("\x1b[2;1HIntensity: %d\n\x1b[K", intensity);
-    printf("\x1b[3;1HDuration: %d\n\x1b[K", duration);
+    printf("\x1b[3;1HDuration: %d\n\x1b[K", duration);;
+    printf("\x1b[5;1HL/R select shocker\n\x1b[K");
+    printf("\x1b[6;1HY - vibrate, X - sound, B - shock\n\x1b[K");
+    printf("\x1b[7;1HSelect - reload shockers, Start - exit\n\x1b[K");
+    printf("\x1b[8;1HDPad up/down - intensity\n\x1b[K");
+    printf("\x1b[9;1HDPad left/right - Duration\n\x1b[K");
 }
 
 void action(const char* action) {
     // ToDo: POST request to server with action
+
+    selectedShockerIndex = selectedShockerIndex % shockers.size();
+    auto selectedShocker = shockers.begin();
+    std::advance(selectedShocker, selectedShockerIndex);
+    sendAction(action, intensity, duration, *selectedShocker);
 }
 
 //---------------------------------------------------------------------------------
@@ -110,7 +117,7 @@ int main(int argc, char *argv[]) {
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
     shockers = getShockers();
-    consoleClear();
+    printStatus();
 
 
     // Main loop
@@ -128,30 +135,47 @@ int main(int argc, char *argv[]) {
 
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 
-        printStatus();
 
-        if (kDown & KEY_B) {
+        if (kDown & KEY_SELECT) {
             shockers = getShockers();
-            printf("Memory: %d %d %d\n", mallinfo().arena, mallinfo().uordblks, mallinfo().fordblks);
+            printStatus();
         }
 
-        if (kDown & KEY_X) {
+        if (kDown & KEY_R) {
             selectedShockerIndex++;
+            printStatus();
+        }
+        if (kDown & KEY_L) {
+            selectedShockerIndex--;
+            printStatus();
         }
         if (kDown & KEY_DDOWN) {
             intensity -= 5;
+            printStatus();
         }
         if (kDown & KEY_DUP) {
             intensity += 5;
+            printStatus();
         }
         if (kDown & KEY_DLEFT) {
             duration -= 200;
+            printStatus();
         }
         if (kDown & KEY_DRIGHT) {
             duration += 200;
+            printStatus();
         }
-        if (kDown & KEY_A) {
+        if (kDown & KEY_Y) {
             action("Vibrate");
+            printStatus();
+        }
+        if (kDown & KEY_X) {
+            action("Sound");
+            printStatus();
+        }
+        if (kDown & KEY_B) {
+            action("Shock");
+            printStatus();
         }
 
         if (kDown & KEY_A) {
