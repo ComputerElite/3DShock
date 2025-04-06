@@ -15,7 +15,7 @@ jobs:
           submodules: recursive
       - name: set up devkitpro
         run: |
-          sudo curl -L https://apt.devkitpro.org/install-devkitpro-pacman | bash
+          sudo curl -L https://apt.devkitpro.org/install-devkitpro-pacman | sudo bash
           sudo dkp-pacman -Syu
           sudo dkp-pacman -S 3ds-dev 3ds-curl
       - run: make cia
