@@ -6,328 +6,344 @@
 #include <string>
 #include <curl/curl.h>
 
+#include "creds.h"
 #include "json.hpp"
 
-const char* userAgent = "3DShock/0.0.0";
-User user = {nullptr, nullptr, false};
+const char *userAgent = "3DShock/0.0.0";
+char token[] = OPENSHOCK_TOKEN;
+char apiUrl[] = OPENSHOCK_URL;
+User user = {token};
 #define HTTP_CONTENT_LENGTH_HEADER "Content-Length"
 #define HTTP_TIMEOUT_SEC 5
 
 typedef struct {
-	u32 bufferSize;
-	u64* contentLength;
-	void* userData;
-	Result (*callback)(void* userData, void* buffer, size_t size);
+    u32 bufferSize;
+    u64 *contentLength;
+    void *userData;
 
-	void* buf;
-	u32 pos;
+    Result (*callback)(void *userData, void *buffer, size_t size);
 
-	Result res;
+    void *buf;
+    u32 pos;
+
+    Result res;
 } http_curl_data;
 
-static size_t http_curl_header_callback(const char* buffer, size_t size, size_t nitems, void* userdata) {
-	auto* curlData = static_cast<http_curl_data *>(userdata);
+static size_t http_curl_header_callback(const char *buffer, size_t size, size_t nitems, void *userdata) {
+    auto *curlData = static_cast<http_curl_data *>(userdata);
 
-	size_t bytes = size * nitems;
-	size_t headerNameLen = strlen(HTTP_CONTENT_LENGTH_HEADER);
+    size_t bytes = size * nitems;
+    size_t headerNameLen = strlen(HTTP_CONTENT_LENGTH_HEADER);
 
-	if(bytes >= headerNameLen && strncmp(buffer, HTTP_CONTENT_LENGTH_HEADER, headerNameLen) == 0) {
-		char* separator = strstr(buffer, ": ");
-		if(separator != nullptr) {
-			char* valueStart = separator + 2;
+    if (bytes >= headerNameLen && strncmp(buffer, HTTP_CONTENT_LENGTH_HEADER, headerNameLen) == 0) {
+        char *separator = strstr(buffer, ": ");
+        if (separator != nullptr) {
+            char *valueStart = separator + 2;
 
-			char value[32];
-			memset(value, '\0', sizeof(value));
-			strncpy(value, valueStart, bytes - (valueStart - buffer));
+            char value[32];
+            memset(value, '\0', sizeof(value));
+            strncpy(value, valueStart, bytes - (valueStart - buffer));
 
-			if(curlData->contentLength != nullptr) {
-				*(curlData->contentLength) = static_cast<u64>(atoll(value));
-			}
-		}
-	}
+            if (curlData->contentLength != nullptr) {
+                *(curlData->contentLength) = static_cast<u64>(atoll(value));
+            }
+        }
+    }
 
-	return size * nitems;
+    return size * nitems;
 }
 
-static size_t http_curl_write_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
-	auto curlData = static_cast<http_curl_data *>(userdata);
+static size_t http_curl_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
+    auto curlData = static_cast<http_curl_data *>(userdata);
 
-	size_t available = size * nmemb;
-	while(available > 0) {
-		size_t remaining = curlData->bufferSize - curlData->pos;
-		size_t copySize = available < remaining ? available : remaining;
+    size_t available = size * nmemb;
+    while (available > 0) {
+        size_t remaining = curlData->bufferSize - curlData->pos;
+        size_t copySize = available < remaining ? available : remaining;
 
-		memcpy((u8*) curlData->buf + curlData->pos, ptr, copySize);
-		curlData->pos += copySize;
-		available -= copySize;
+        memcpy((u8 *) curlData->buf + curlData->pos, ptr, copySize);
+        curlData->pos += copySize;
+        available -= copySize;
 
-		if(curlData->pos == curlData->bufferSize) {
-			curlData->res = curlData->callback(curlData->userData, curlData->buf, curlData->bufferSize);
-			curlData->pos = 0;
-		}
-	}
+        if (curlData->pos == curlData->bufferSize) {
+            curlData->res = curlData->callback(curlData->userData, curlData->buf, curlData->bufferSize);
+            curlData->pos = 0;
+        }
+    }
 
-	return R_SUCCEEDED(curlData->res) ? size * nmemb : 0;
+    return R_SUCCEEDED(curlData->res) ? size * nmemb : 0;
 }
 
-char* concatenateCharPtrAndStr(const char* charPtr, const std::string& str) {
-	// Calculate the length of the resulting string
-	size_t strLength = str.length();
-	size_t charPtrLength = strlen(charPtr);
-	size_t totalLength = strLength + charPtrLength + 1; // +1 for the null terminator
+char *concatenateCharPtrAndStr(const char *charPtr, const std::string &str) {
+    // Calculate the length of the resulting string
+    size_t strLength = str.length();
+    size_t charPtrLength = strlen(charPtr);
+    size_t totalLength = strLength + charPtrLength + 1; // +1 for the null terminator
 
-	// Allocate memory for the resulting string
-	char* result = new char[totalLength];
-	// Copy the contents of the char* to the result
-	strcpy(result, charPtr);
-	// Append the contents of the std::string to the result
-	strcpy(result + charPtrLength, str.c_str());
+    // Allocate memory for the resulting string
+    char *result = new char[totalLength];
+    // Copy the contents of the char* to the result
+    strcpy(result, charPtr);
+    // Append the contents of the std::string to the result
+    strcpy(result + charPtrLength, str.c_str());
 
-	return result;
+    return result;
 }
 
-char* concatenateStringAndCharPtr(const std::string& str, const char* charPtr) {
-	// Calculate the length of the resulting string
-	size_t strLength = str.length();
-	size_t charPtrLength = strlen(charPtr);
-	size_t totalLength = strLength + charPtrLength + 1; // +1 for the null terminator
+char *concatenateStringAndCharPtr(const std::string &str, const char *charPtr) {
+    // Calculate the length of the resulting string
+    size_t strLength = str.length();
+    size_t charPtrLength = strlen(charPtr);
+    size_t totalLength = strLength + charPtrLength + 1; // +1 for the null terminator
 
-	// Allocate memory for the resulting string
-	char *result = new char[totalLength];
+    // Allocate memory for the resulting string
+    char *result = new char[totalLength];
 
-	// Copy the contents of the std::string to the result
-	strcpy(result, str.c_str());
+    // Copy the contents of the std::string to the result
+    strcpy(result, str.c_str());
 
-	// Append the contents of the char* to the result
-	strcpy(result + strLength, charPtr);
+    // Append the contents of the char* to the result
+    strcpy(result + strLength, charPtr);
 
-	return result;
+    return result;
 }
 
-Result http_post(const char *url, u8 **buf, const char* data, char* token)
-{
-	CURL *curl = curl_easy_init();
-	if (curl) {
-		constexpr int bufferSize = 4096;
-		u64* contentLength = nullptr;
-		void* userData = nullptr;
-		Result (*callback)(void* userData, void* buffer, size_t size) = nullptr;
-		*buf = static_cast<u8 *>(malloc(bufferSize));
-		for (int i = 0; i < bufferSize; i++) {
-			(*buf)[i] = 0;
-		}
-		http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
+Result http_post(const char *url, u8 **buf, const char *data, char *token) {
+    CURL *curl = curl_easy_init();
+    if (curl) {
+        constexpr int bufferSize = 4096;
+        u64 *contentLength = nullptr;
+        void *userData = nullptr;
+        Result (*callback)(void *userData, void *buffer, size_t size) = nullptr;
+        *buf = static_cast<u8 *>(malloc(bufferSize));
+        for (int i = 0; i < bufferSize; i++) {
+            (*buf)[i] = 0;
+        }
+        http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
 
-		curl_slist *headers = nullptr;
-		//headers = curl_slist_append(headers, "Host: api.openshock.zap");
-		headers = curl_slist_append(headers, concatenateStringAndCharPtr("OpenShockToken: ", token));
-		headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_slist *headers = nullptr;
+        //headers = curl_slist_append(headers, "Host: api.openshock.zap");
+        headers = curl_slist_append(headers, concatenateStringAndCharPtr("OpenShockToken: ", token));
+        headers = curl_slist_append(headers, "Content-Type: application/json");
 
-		// Set up curl options
-		curl_easy_setopt(curl, CURLOPT_URL, url);
-		curl_easy_setopt(curl, CURLOPT_POST, 1L);
-		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, strdup(data));
-		curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent);
-		curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, bufferSize);
-		curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_TIMEOUT_SEC);
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
-		curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_curl_write_callback);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*) &curlData);
-		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, http_curl_header_callback);
-		curl_easy_setopt(curl, CURLOPT_HEADERDATA, (void*) &curlData);
-		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        // Set up curl options
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, strdup(data));
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent);
+        curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, bufferSize);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_TIMEOUT_SEC);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_curl_write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*) &curlData);
+        curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, http_curl_header_callback);
+        curl_easy_setopt(curl, CURLOPT_HEADERDATA, (void*) &curlData);
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-		// Perform the request
-		CURLcode res = curl_easy_perform(curl);
-		free(contentLength);
-		curl_slist_free_all(headers);
-		if (res != CURLE_OK) {
-			printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-			return res;
-		}
+        // Perform the request
+        CURLcode res = curl_easy_perform(curl);
+        free(contentLength);
+        curl_slist_free_all(headers);
+        if (res != CURLE_OK) {
+            printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            return res;
+        }
 
-		// Cleanup
-		curl_easy_cleanup(curl);
-		return 0;
-	}
-	printf("Failed to initialize libcurl.\n");
-	return 1;
+        // Cleanup
+        curl_easy_cleanup(curl);
+        return 0;
+    }
+    printf("Failed to initialize libcurl.\n");
+    return 1;
 }
 
-Result http_get(const char *url, u8 **buf, char* token)
-{
-	CURL *curl = curl_easy_init();
-	if (curl) {
-		constexpr int bufferSize = 4096;
-		u64* contentLength = nullptr;
-		void* userData = nullptr;
-		Result (*callback)(void* userData, void* buffer, size_t size) = nullptr;
-		*buf = static_cast<u8 *>(malloc(bufferSize));
-		for (int i = 0; i < bufferSize; i++) {
-			(*buf)[i] = 0;
-		}
-		http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
+Result http_get(const char *url, u8 **buf, char *token) {
+    CURL *curl = curl_easy_init();
+    if (curl) {
+        constexpr int bufferSize = 4096;
+        u64 *contentLength = nullptr;
+        void *userData = nullptr;
+        Result (*callback)(void *userData, void *buffer, size_t size) = nullptr;
+        *buf = static_cast<u8 *>(malloc(bufferSize));
+        for (int i = 0; i < bufferSize; i++) {
+            (*buf)[i] = 0;
+        }
+        http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
 
-		curl_slist *headers = nullptr;
-		//headers = curl_slist_append(headers, "Host: api.openshock.zap");
-		headers = curl_slist_append(headers, concatenateStringAndCharPtr("OpenShockToken: ", token));
+        curl_slist *headers = nullptr;
+        //headers = curl_slist_append(headers, "Host: api.openshock.zap");
+        headers = curl_slist_append(headers, concatenateStringAndCharPtr("OpenShockToken: ", token));
 
-		// Set up curl options
-		curl_easy_setopt(curl, CURLOPT_URL, url);
-		curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent);
-		curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, bufferSize);
-		curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_TIMEOUT_SEC);
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
-		curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_curl_write_callback);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*) &curlData);
-		curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, http_curl_header_callback);
-		curl_easy_setopt(curl, CURLOPT_HEADERDATA, (void*) &curlData);
-		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        // Set up curl options
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent);
+        curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, bufferSize);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_TIMEOUT_SEC);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_curl_write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*) &curlData);
+        curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, http_curl_header_callback);
+        curl_easy_setopt(curl, CURLOPT_HEADERDATA, (void*) &curlData);
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-		// Perform the request
-		CURLcode res = curl_easy_perform(curl);
-		free(contentLength);
-		curl_slist_free_all(headers);
-		if (res != CURLE_OK) {
-			printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-			return res;
-		}
+        // Perform the request
+        CURLcode res = curl_easy_perform(curl);
+        free(contentLength);
+        curl_slist_free_all(headers);
+        if (res != CURLE_OK) {
+            printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            return res;
+        }
 
-		// Cleanup
-		curl_easy_cleanup(curl);
-		return 0;
-	}
-	printf("Failed to initialize libcurl.\n");
-	return 1;
+        // Cleanup
+        curl_easy_cleanup(curl);
+        return 0;
+    }
+    printf("Failed to initialize libcurl.\n");
+    return 1;
 }
 
 using json = nlohmann::json;
 
 void printShockerDetails(Shocker s) {
-	printf("Shocker ID: %s\n", s.id);
-	printf("Shocker Name: %s\n", s.name);
-	printf("Shocker Model: %s\n", s.model);
-	printf("Shocker isPaused: %s\n", s.isPaused ? "true" : "false");
-	printf("Shocker Limits Intensity: %d\n", s.limits.intensity);
-	printf("Shocker Limits Duration: %d\n", s.limits.duration);
-	printf("Shocker Permissions Shock: %s\n", s.permissions.shock ? "true" : "false");
-	printf("Shocker Permissions Vibrate: %s\n", s.permissions.vibrate ? "true" : "false");
-	printf("Shocker Permissions Sound: %s\n", s.permissions.sound ? "true" : "false");
-	printf("Shocker Permissions Live: %s\n", s.permissions.live ? "true" : "false");
+    printf("Shocker ID: %s\n", s.id);
+    printf("Shocker Name: %s\n", s.name);
+    printf("Shocker Model: %s\n", s.model);
+    printf("Shocker isPaused: %s\n", s.isPaused ? "true" : "false");
+    printf("Shocker Limits Intensity: %d\n", s.limits.intensity);
+    printf("Shocker Limits Duration: %d\n", s.limits.duration);
+    printf("Shocker Permissions Shock: %s\n", s.permissions.shock ? "true" : "false");
+    printf("Shocker Permissions Vibrate: %s\n", s.permissions.vibrate ? "true" : "false");
+    printf("Shocker Permissions Sound: %s\n", s.permissions.sound ? "true" : "false");
+    printf("Shocker Permissions Live: %s\n", s.permissions.live ? "true" : "false");
 }
 
-Shocker parseShocker(nlohmann::basic_json<>& shocker) {
-	Shocker parsedShocker = {};
+Shocker parseShocker(nlohmann::basic_json<> &shocker) {
+    Shocker parsedShocker = {};
 
-	parsedShocker.name = strdup(shocker["name"].get<std::string>().c_str());
-	parsedShocker.id = strdup(shocker["id"].get<std::string>().c_str());
-	if (shocker["model"] != nullptr) parsedShocker.model = strdup(shocker["model"].get<std::string>().c_str());
-	else parsedShocker.model = strdup("Unknown");
-	parsedShocker.isPaused = shocker["isPaused"].get<bool>();
-	if (shocker["limits"] != nullptr) {
-		parsedShocker.limits.intensity = shocker["limits"]["intensity"] == nullptr ? 100 : shocker["limits"]["intensity"].get<int>();
-		parsedShocker.limits.duration = shocker["limits"]["duration"] == nullptr ? 30000 : shocker["limits"]["duration"].get<int>();
-	} else {
-		parsedShocker.limits.intensity = 100;
-		parsedShocker.limits.duration = 30000;
-	}
-	if (shocker["permissions"] != nullptr) {
-		parsedShocker.permissions.shock = shocker["permissions"]["shock"].get<bool>();
-		parsedShocker.permissions.vibrate = shocker["permissions"]["vibrate"].get<bool>();
-		parsedShocker.permissions.sound = shocker["permissions"]["sound"].get<bool>();
-		parsedShocker.permissions.live = shocker["permissions"]["live"].get<bool>();
-	} else {
-		parsedShocker.permissions.shock = true;
-		parsedShocker.permissions.vibrate = true;
-		parsedShocker.permissions.sound = true;
-		parsedShocker.permissions.live = true;
-	}
+    parsedShocker.name = strdup(shocker["name"].get<std::string>().c_str());
+    parsedShocker.id = strdup(shocker["id"].get<std::string>().c_str());
+    if (shocker["model"] != nullptr) parsedShocker.model = strdup(shocker["model"].get<std::string>().c_str());
+    else parsedShocker.model = strdup("Unknown");
+    parsedShocker.isPaused = shocker["isPaused"].get<bool>();
+    if (shocker["limits"] != nullptr) {
+        parsedShocker.limits.intensity = shocker["limits"]["intensity"] == nullptr
+                                             ? 100
+                                             : shocker["limits"]["intensity"].get<int>();
+        parsedShocker.limits.duration = shocker["limits"]["duration"] == nullptr
+                                            ? 30000
+                                            : shocker["limits"]["duration"].get<int>();
+    } else {
+        parsedShocker.limits.intensity = 100;
+        parsedShocker.limits.duration = 30000;
+    }
+    if (shocker["permissions"] != nullptr) {
+        parsedShocker.permissions.shock = shocker["permissions"]["shock"].get<bool>();
+        parsedShocker.permissions.vibrate = shocker["permissions"]["vibrate"].get<bool>();
+        parsedShocker.permissions.sound = shocker["permissions"]["sound"].get<bool>();
+        parsedShocker.permissions.live = shocker["permissions"]["live"].get<bool>();
+    } else {
+        parsedShocker.permissions.shock = true;
+        parsedShocker.permissions.vibrate = true;
+        parsedShocker.permissions.sound = true;
+        parsedShocker.permissions.live = true;
+    }
 
-	return parsedShocker;
+    return parsedShocker;
 }
 
 int clamp(int value, int min, int max) {
-	if (value < min) return min;
-	if (value > max) return max;
-	return value;
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
 }
 
-bool sendAction(const char* action, int intensity, int duration, Shocker s) {
-	intensity = clamp(intensity, 0, s.limits.intensity);
-	duration = clamp(duration, 0, s.limits.duration);
-	json j;
-	j["shocks"] = json::array();
-	j["shocks"].push_back({{"id", s.id}, {"type", action}, {"intensity", intensity}, {"duration", duration}, {"exclusive", true}});
-	j["customName"] = nullptr;
-	u8* buf;
-	Result r = http_post(concatenateCharPtrAndStr(user.server, "2/shockers/control"), &buf, j.dump().c_str(), user.token);
-	if (buf) {
-		printf("%s\n", reinterpret_cast<char *>(buf));
-		free(buf);
-	} else {
-		printf("Buffer was freed\n");
-	}
-	printf("HTTP_POST returned 0x%08X\n", r);
-	return r == 0;
+float fclamp(const float value, const float min, const float max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
+
+bool sendAction(const char *action, int intensity, int duration, Shocker s) {
+    intensity = clamp(intensity, 0, s.limits.intensity);
+    duration = clamp(duration, 0, s.limits.duration);
+    json j;
+    j["shocks"] = json::array();
+    j["shocks"].push_back({
+        {"id", s.id}, {"type", action}, {"intensity", intensity}, {"duration", duration}, {"exclusive", true}
+    });
+    j["customName"] = nullptr;
+    u8 *buf;
+    printf(j.dump().c_str());
+    Result r = http_post(concatenateCharPtrAndStr(apiUrl, "2/shockers/control"), &buf, j.dump().c_str(), user.token);
+    if (buf) {
+        printf("%s\n", reinterpret_cast<char *>(buf));
+        free(buf);
+    } else {
+        printf("Buffer was freed\n");
+    }
+    printf("HTTP_POST returned 0x%08X\n", r);
+    return r == 0;
 }
 
 json tmpShockers;
+
 std::list<Shocker> getShockers() {
-	printf("Getting shockers...\n");
-	u8* buf;
-	std::list<Shocker> shockers;
-	Result r = http_get(concatenateCharPtrAndStr(user.server, "1/shockers/own"), &buf, user.token);
-	printf("HTTP_GET returned 0x%08X\n", r);
-	if (buf) {
-		printf("Response body: %s\n", reinterpret_cast<char *>(buf));
-		tmpShockers = json::parse(buf);
-		if (tmpShockers["data"] != nullptr) {
-			for (auto& hub : tmpShockers["data"]) {
-				std::string hubName;
-				if (hub["name"] != nullptr) hubName = hub["name"].get<std::string>();
-				else printf("\nName:Unknown\n");
-				if (hub["shockers"] != nullptr) {
-					for (auto& shocker : hub["shockers"]) {
-						Shocker parsedShocker = parseShocker(shocker);
-						parsedShocker.name = strdup((std::string(hubName) + "." + parsedShocker.name).c_str());
-						shockers.push_back(parsedShocker);
-					}
-				}
-			}
-		}
-		free(buf);
-	} else {
-		printf("Buffer was freed\n");
-	}
-	r = http_get(concatenateCharPtrAndStr(user.server, "1/shockers/shared"), &buf, user.token);
-	printf("HTTP_GET returned 0x%08X\n", r);
-	if (buf) {
-		printf("Response body: %s\n", reinterpret_cast<char *>(buf));
-		json newTmpShockers = json::parse(buf);
-		if (newTmpShockers["data"] != nullptr) {
-			for (auto& deviceCollection : newTmpShockers["data"]) {
-				if (deviceCollection["devices"] != nullptr) {
-					for (auto& hub : deviceCollection["devices"]) {
-						std::string hubName;
-						if (hub["name"] != nullptr) hubName = hub["name"].get<std::string>();
-						else printf("\nName:Unknown\n");
-						if (hub["shockers"] != nullptr) {
-							for (auto& shocker : hub["shockers"]) {
-								Shocker parsedShocker = parseShocker(shocker);
-								parsedShocker.name = strdup((std::string(hubName) + "." + parsedShocker.name).c_str());
-								shockers.push_back(parsedShocker);
-							}
-						}
-					}
-				}
-			}
-		}
-		free(buf);
-	} else {
-		printf("Buffer was freed\n");
-	}
-	printf("Got%s %d shockers\n", !shockers.empty() ? "" : " no", static_cast<int>(shockers.size()));
-	return shockers;
+    printf("Getting shockers...\n");
+    u8 *buf;
+    std::list<Shocker> shockers;
+    Result r = http_get(concatenateCharPtrAndStr(apiUrl, "1/shockers/own"), &buf, user.token);
+    printf("HTTP_GET returned 0x%08X\n", r);
+    if (buf) {
+        printf("Response body: %s\n", reinterpret_cast<char *>(buf));
+        tmpShockers = json::parse(buf);
+        if (tmpShockers["data"] != nullptr) {
+            for (auto &hub: tmpShockers["data"]) {
+                std::string hubName;
+                if (hub["name"] != nullptr) hubName = hub["name"].get<std::string>();
+                else printf("\nName:Unknown\n");
+                if (hub["shockers"] != nullptr) {
+                    for (auto &shocker: hub["shockers"]) {
+                        Shocker parsedShocker = parseShocker(shocker);
+                        parsedShocker.name = strdup((std::string(hubName) + "." + parsedShocker.name).c_str());
+                        shockers.push_back(parsedShocker);
+                    }
+                }
+            }
+        }
+        free(buf);
+    } else {
+        printf("Buffer was freed\n");
+    }
+    r = http_get(concatenateCharPtrAndStr(apiUrl, "1/shockers/shared"), &buf, user.token);
+    printf("HTTP_GET returned 0x%08X\n", r);
+    if (buf) {
+        printf("Response body: %s\n", reinterpret_cast<char *>(buf));
+        json newTmpShockers = json::parse(buf);
+        if (newTmpShockers["data"] != nullptr) {
+            for (auto &deviceCollection: newTmpShockers["data"]) {
+                if (deviceCollection["devices"] != nullptr) {
+                    for (auto &hub: deviceCollection["devices"]) {
+                        std::string hubName;
+                        if (hub["name"] != nullptr) hubName = hub["name"].get<std::string>();
+                        else printf("\nName:Unknown\n");
+                        if (hub["shockers"] != nullptr) {
+                            for (auto &shocker: hub["shockers"]) {
+                                Shocker parsedShocker = parseShocker(shocker);
+                                parsedShocker.name = strdup((std::string(hubName) + "." + parsedShocker.name).c_str());
+                                shockers.push_back(parsedShocker);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        free(buf);
+    } else {
+        printf("Buffer was freed\n");
+    }
+    printf("Got%s %d shockers\n", !shockers.empty() ? "" : " no", static_cast<int>(shockers.size()));
+    return shockers;
 }

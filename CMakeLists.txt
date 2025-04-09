@@ -9,9 +9,17 @@ set(SOURCE_FILES
         source/network.hpp
         source/json.hpp
         source/creds.h
-        source/camera.c
-        source/main.h
-)
+        source/ui/ui_components.cpp
+        source/ui/ui_components.h
+        source/ui/ui_screen.cpp
+        source/ui/ui_screen.h
+        source/ui/main_screen.cpp
+        source/ui/main_screen.h
+        source/ui/settings_screen.cpp
+        source/ui/settings_screen.h
+        source/camera.cpp
+        source/camera.hpp
+        source/main.h)
 
 include_directories($ENV{DEVKITARM}/include/)
 include_directories($ENV{DEVKITARM}/arm-none-eabi/include)

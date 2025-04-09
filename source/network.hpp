@@ -2,7 +2,8 @@
 #include <3ds.h>
 #include <list>
 
-extern const char* userAgent;
+extern const char *userAgent;
+
 struct User {
     char *token;
     char *server;
@@ -22,9 +23,9 @@ struct ShockerPermissions {
 };
 
 struct Shocker {
-    char* name;
-    char* id;
-    char* model;
+    char *name;
+    char *id;
+    char *model;
     bool isPaused;
     ShockerLimits limits;
     ShockerPermissions permissions;
@@ -34,5 +35,8 @@ extern User user;
 
 extern int clamp(int value, int min, int max);
 
-extern bool sendAction(const char* action, int intensity, int duration, Shocker s);
-extern std::list<Shocker> getShockers() ;
+extern float fclamp(float value, float min, float max);
+
+extern bool sendAction(const char *action, int intensity, int duration, Shocker s);
+
+extern std::list<Shocker> getShockers();
