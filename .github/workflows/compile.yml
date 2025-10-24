@@ -19,7 +19,7 @@ jobs:
           sudo apt-get install -y apt-transport-https
           
           # Add the devkitPro apt repository if we don't have it set up already
-          sudo echo "deb [signed-by=/usr/local/share/keyring/devkitpro-pub.gpg] https://apt.devkitpro.org stable main" > /etc/apt/sources.list.d/devkitpro.list
+          sudo echo "deb [signed-by=/usr/local/share/keyring/devkitpro-pub.gpg] https://apt.devkitpro.org stable main" | sudo tee /etc/apt/sources.list.d/devkitpro.list
           
           sudo apt-get update
           sudo apt-get install -y devkitpro-pacman
