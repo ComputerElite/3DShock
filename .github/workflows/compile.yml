@@ -39,5 +39,8 @@ jobs:
           unzip makerom-v0.18.4-ubuntu_x86_64.zip
           chmod +x makerom
 
-      - run:  source /etc/profile.d/devkit-env.sh && PATH=$(pwd):$(pwd)/linux-x86_64/:$PATH && make cia
-      - run: ls output
+      - run: source /etc/profile.d/devkit-env.sh && PATH=$(pwd):$(pwd)/linux-x86_64/:$PATH && make cia
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 3DShock
+          path: output/3DShock.cia
