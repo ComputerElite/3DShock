@@ -55,6 +55,8 @@ Result init_services() {
 }
 
 #define USER_FILE "OpenShockUser.json"
+#define NUM_THREADS 3
+#define STACKSIZE (16 * 1024)
 
 void saveUser() {
     FILE *file = fopen(USER_FILE, "wb");
@@ -115,12 +117,34 @@ User readUser() {
     return readUser;
 }
 
+bool runThreads = true;
+s32 prio = 0;
+struct Action {
+    int intensity;
+    int duration;
+    const char *action;
+    Shocker shocker;
+};
+
+void sendActionThread(void *action) {
+    //SslCurlWrapper wrapper;
+    auto actionData = static_cast<Action *>(action);
+    sendAction(actionData->action, actionData->intensity, actionData->duration, actionData->shocker);
+}
+
+
 void action(const char* action) {
     printf("Sending action: %s\n", action);
     selectedShockerIndex = selectedShockerIndex % shockers.size();
     auto selectedShocker = shockers.begin();
     std::advance(selectedShocker, selectedShockerIndex);
-    sendAction(action, intensity, duration, *selectedShocker);
+    auto actionData = new Action();
+    actionData->intensity = intensity;
+    actionData->duration = duration;
+    actionData->action = action;
+    actionData->shocker = *selectedShocker;
+    threadCreate(sendActionThread, actionData, STACKSIZE, prio-1, 0, false);
+    usleep(100);
 }
 
 void printStatus() {
@@ -184,9 +208,10 @@ int main() {
     top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
     bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl_global_init(CURL_GLOBAL_ALL);
 
     constexpr u32 clrClear = C2D_Color32(0x00, 0x00, 0x00, 0xFF);
+    svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
 
     // Main loop
     while (aptMainLoop()) {
@@ -224,6 +249,18 @@ int main() {
         }
         if (kDown & KEY_DRIGHT) {
             duration += 200;
+            printStatus();
+        }
+        if (kDown & KEY_Y) {
+            action("Vibrate");
+            printStatus();
+        }
+        if (kDown & KEY_X) {
+            action("Sound");
+            printStatus();
+        }
+        if (kDown & KEY_B) {
+            action("Shock");
             printStatus();
         }
 
@@ -274,7 +311,11 @@ int main() {
             break;
     }
 
+
+    runThreads = false;
+
     curl_global_cleanup();
+
     //cleanup_services();
 
     // Deinit libs
