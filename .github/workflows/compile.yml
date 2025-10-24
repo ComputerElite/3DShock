@@ -28,5 +28,5 @@ jobs:
 
           sudo dkp-pacman --noconfirm -Syu
           sudo dkp-pacman --noconfirm -S 3ds-dev 3ds-curl
-      - run: make cia
+      - run: source /etc/profile.d/devkit-env.sh && make cia
       - run: ls output
