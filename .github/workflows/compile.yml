@@ -26,7 +26,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y devkitpro-pacman
 
-          sudo dkp-pacman -Syu
+          yes | sudo dkp-pacman -Syu
           yes | sudo dkp-pacman -S 3ds-dev 3ds-curl
       - run: make cia
       - run: ls output
