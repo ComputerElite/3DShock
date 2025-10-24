@@ -33,6 +33,11 @@ jobs:
           wget https://github.com/diasurgical/bannertool/releases/download/1.2.0/bannertool.zip
           unzip bannertool.zip
           chmod +x linux-x86_64/bannertool
+      - name: Get ctrtool
+        run: |
+          wget https://github.com/3DSGuy/Project_CTR/releases/download/makerom-v0.18.4/makerom-v0.18.4-ubuntu_x86_64.zip
+          unzip makerom-v0.18.4-ubuntu_x86_64.zip
+          chmod +x makerom
 
-      - run:  source /etc/profile.d/devkit-env.sh && PATH=$(pwd)/linux-x86_64/:$PATH && make cia
+      - run:  source /etc/profile.d/devkit-env.sh && PATH=$(pwd):$(pwd)/linux-x86_64/:$PATH && make cia
       - run: ls output
