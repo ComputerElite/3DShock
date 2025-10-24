@@ -17,6 +17,6 @@ jobs:
         run: |
           sudo curl -L https://apt.devkitpro.org/install-devkitpro-pacman | sudo bash
           sudo dkp-pacman -Syu
-          sudo dkp-pacman -S 3ds-dev 3ds-curl
+          yes | sudo dkp-pacman -S 3ds-dev 3ds-curl --yes
       - run: make cia
       - run: ls output
