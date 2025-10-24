@@ -19,6 +19,8 @@ jobs:
           sudo apt-get install -y apt-transport-https
           
           # Add the devkitPro apt repository if we don't have it set up already
+          sudo mkdir -p /usr/local/share/keyring/
+          sudo wget -O /usr/local/share/keyring/devkitpro-pub.gpg https://apt.devkitpro.org/devkitpro-pub.gpg
           sudo echo "deb [signed-by=/usr/local/share/keyring/devkitpro-pub.gpg] https://apt.devkitpro.org stable main" | sudo tee /etc/apt/sources.list.d/devkitpro.list
           
           sudo apt-get update
