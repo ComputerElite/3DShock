@@ -15,8 +15,16 @@ jobs:
           submodules: recursive
       - name: set up devkitpro
         run: |
-          sudo curl -L https://apt.devkitpro.org/install-devkitpro-pacman | sudo bash
+          # ensure apt is set up to work with https sources
+          sudo apt-get install -y apt-transport-https
+          
+          # Add the devkitPro apt repository if we don't have it set up already
+          sudo echo "deb [signed-by=/usr/local/share/keyring/devkitpro-pub.gpg] https://apt.devkitpro.org stable main" > /etc/apt/sources.list.d/devkitpro.list
+          
+          sudo apt-get update
+          sudo apt-get install -y devkitpro-pacman
+
           sudo dkp-pacman -Syu
-          yes | sudo dkp-pacman -S 3ds-dev 3ds-curl --yes
+          yes | sudo dkp-pacman -S 3ds-dev 3ds-curl
       - run: make cia
       - run: ls output
