@@ -24,9 +24,15 @@ jobs:
           sudo echo "deb [signed-by=/usr/local/share/keyring/devkitpro-pub.gpg] https://apt.devkitpro.org stable main" | sudo tee /etc/apt/sources.list.d/devkitpro.list
           
           sudo apt-get update
-          sudo apt-get install -y devkitpro-pacman
+          sudo apt-get install -y devkitpro-pacman unzip
 
           sudo dkp-pacman --noconfirm -Syu
           sudo dkp-pacman --noconfirm -S 3ds-dev 3ds-curl
-      - run: source /etc/profile.d/devkit-env.sh && make cia
+      - name: Get bannertool
+        run: | 
+          wget https://github.com/diasurgical/bannertool/releases/download/1.2.0/bannertool.zip
+          unzip bannertool.zip
+          chmod +x linux-x86_64/bannertool
+
+      - run:  source /etc/profile.d/devkit-env.sh && PATH=$(pwd)/linux-x86_64/:$PATH && make cia
       - run: ls output
