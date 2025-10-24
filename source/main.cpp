@@ -172,7 +172,7 @@ void printStatus() {
     printf("\x1b[7;1HSelect - reload shockers, Start - exit\n\x1b[K");
     printf("\x1b[8;1HDPad up/down - intensity\n\x1b[K");
     printf("\x1b[9;1HDPad left/right - Duration\n\x1b[K");
-    printf("\x1b[10;1HZR - Switch user\n\x1b[K");
+    //printf("\x1b[10;1HZR - Switch user\n\x1b[K");
 }
 
 bool touched = false;
