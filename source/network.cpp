@@ -6,13 +6,10 @@
 #include <string>
 #include <curl/curl.h>
 
-#include "creds.h"
 #include "json.hpp"
 
 const char *userAgent = "3DShock/0.0.0";
-char token[] = OPENSHOCK_TOKEN;
-char apiUrl[] = OPENSHOCK_URL;
-User user = {token};
+User user = {};
 #define HTTP_CONTENT_LENGTH_HEADER "Content-Length"
 #define HTTP_TIMEOUT_SEC 5
 
@@ -122,6 +119,8 @@ Result http_post(const char *url, u8 **buf, const char *data, char *token) {
         http_curl_data curlData = {bufferSize, contentLength, userData, callback, *buf, 0, 0};
 
         curl_slist *headers = nullptr;
+        printf("making headers");
+        sleep(2);
         //headers = curl_slist_append(headers, "Host: api.openshock.zap");
         headers = curl_slist_append(headers, concatenateStringAndCharPtr("OpenShockToken: ", token));
         headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -129,7 +128,7 @@ Result http_post(const char *url, u8 **buf, const char *data, char *token) {
         // Set up curl options
         curl_easy_setopt(curl, CURLOPT_URL, url);
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, strdup(data));
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent);
         curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, bufferSize);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_TIMEOUT_SEC);
@@ -270,21 +269,25 @@ bool sendAction(const char *action, int intensity, int duration, Shocker s) {
     intensity = clamp(intensity, 0, s.limits.intensity);
     duration = clamp(duration, 0, s.limits.duration);
     json j;
+    printf("creating json");
     j["shocks"] = json::array();
     j["shocks"].push_back({
         {"id", s.id}, {"type", action}, {"intensity", intensity}, {"duration", duration}, {"exclusive", true}
     });
     j["customName"] = nullptr;
     u8 *buf;
+    printf("Dumping json");
     printf(j.dump().c_str());
-    Result r = http_post(concatenateCharPtrAndStr(apiUrl, "2/shockers/control"), &buf, j.dump().c_str(), user.token);
+    printf("Sending json");
+    Result r = http_post(concatenateCharPtrAndStr(user.server, "2/shockers/control"), &buf, j.dump().c_str(), user.token);
+    printf("Request done'd");
+    printf("HTTP_POST returned 0x%08X\n", r);
     if (buf) {
         printf("%s\n", reinterpret_cast<char *>(buf));
         free(buf);
     } else {
         printf("Buffer was freed\n");
     }
-    printf("HTTP_POST returned 0x%08X\n", r);
     return r == 0;
 }
 
@@ -294,7 +297,7 @@ std::list<Shocker> getShockers() {
     printf("Getting shockers...\n");
     u8 *buf;
     std::list<Shocker> shockers;
-    Result r = http_get(concatenateCharPtrAndStr(apiUrl, "1/shockers/own"), &buf, user.token);
+    Result r = http_get(concatenateCharPtrAndStr(user.server, "1/shockers/own"), &buf, user.token);
     printf("HTTP_GET returned 0x%08X\n", r);
     if (buf) {
         printf("Response body: %s\n", reinterpret_cast<char *>(buf));
@@ -317,7 +320,7 @@ std::list<Shocker> getShockers() {
     } else {
         printf("Buffer was freed\n");
     }
-    r = http_get(concatenateCharPtrAndStr(apiUrl, "1/shockers/shared"), &buf, user.token);
+    r = http_get(concatenateCharPtrAndStr(user.server, "1/shockers/shared"), &buf, user.token);
     printf("HTTP_GET returned 0x%08X\n", r);
     if (buf) {
         printf("Response body: %s\n", reinterpret_cast<char *>(buf));
